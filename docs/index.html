@@ -788,6 +788,16 @@ java [OPTIONS] -jar greenmail-standalone.jar
                         </td>
                     </tr>
                     <tr>
+                        <td class="text-nowrap">-Dgreenmail.tls.enabled.protocols<br><mark><b>Requires 2.1.0-alpha-3</b></mark></td>
+                        <td>Allows to enforce a specific TLS version accepted by the server. The value is a comma separated list of protocol versions passed to <code>javax.net.ssl.SSLServerSocket.setEnabledProtocols</code>.
+                            <p>
+                            <div class="bs-example">
+                                Example:
+                                <code>-Dgreenmail.tls.enabled.protocols="TLSv1.2,TLSv1.3</code>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
                         <td class="text-nowrap">-Dgreenmail.auth.disabled</td>
                         <td>Disables user authentication check, so that any password works.
                             Useful if you do not want to preconfigure user/passwords.

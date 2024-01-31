@@ -46,6 +46,8 @@ public class DummySSLServerSocketFactory extends SSLServerSocketFactory {
     public static final String GREENMAIL_KEYSTORE_FILE_PROPERTY = "greenmail.tls.keystore.file";
     public static final String GREENMAIL_KEYSTORE_PASSWORD_PROPERTY = "greenmail.tls.keystore.password";
     public static final String GREENMAIL_KEY_PASSWORD_PROPERTY = "greenmail.tls.key.password";
+    public static final String GREENMAIL_TLS_ENABLED_PROTOCOLS_PROPERTY = "greenmail.tls.enabled.protocols";
+    public static final String GREENMAIL_TLS_ENABLED_CIPHERS_PROPERTY = "greenmail.tls.enabled.ciphers";
     public static final String GREENMAIL_KEYSTORE_P12 = "greenmail.p12";
     public static final String GREENMAIL_KEYSTORE_JKS = "greenmail.jks";
     private final SSLServerSocketFactory factory;
@@ -83,7 +85,7 @@ public class DummySSLServerSocketFactory extends SSLServerSocketFactory {
             km.init(ks, keyPass);
 
             KeyManager[] kma = km.getKeyManagers();
-            sslcontext.init(kma, new TrustManager[]{new DummyTrustManager()}, null);
+            sslcontext.init(kma, new TrustManager[]{}, null);
             factory = sslcontext.getServerSocketFactory();
         } catch (Exception e) {
             throw new IllegalStateException("Can not create and initialize SSL", e);
@@ -127,10 +129,43 @@ public class DummySSLServerSocketFactory extends SSLServerSocketFactory {
         }
     }
 
-    private SSLServerSocket addAnonCipher(ServerSocket socket) {
+    private SSLServerSocket configureSocket(ServerSocket socket) {
         SSLServerSocket ssl = (SSLServerSocket) socket;
-        ssl.setEnabledCipherSuites(addAnonCiphers(ssl.getEnabledCipherSuites()));
+        String enabledCiphers = getTlsEnabledCiphers();
+        if (enabledCiphers != null && !enabledCiphers.isEmpty()) {
+            ssl.setEnabledCipherSuites(propertyToToSocketArg(enabledCiphers));
+        }else  {
+            ssl.setEnabledCipherSuites(addAnonCiphers(ssl.getEnabledCipherSuites()));
+        }
+        String enabledProtocols = getTlsEnabledProtocols();
+        if (enabledProtocols != null && !enabledProtocols.isEmpty()) {
+            ssl.setEnabledProtocols(propertyToToSocketArg(enabledProtocols));
+        }
         return ssl;
+    }
+
+    private String getTlsEnabledProtocols() {
+        return System.getProperty(GREENMAIL_TLS_ENABLED_PROTOCOLS_PROPERTY);
+    }
+
+    private String getTlsEnabledCiphers() {
+        return System.getProperty(GREENMAIL_TLS_ENABLED_CIPHERS_PROPERTY);
+    }
+
+    private String[] propertyToToSocketArg(String propertyValue) {
+        return propertyValue.split(",");
+    }
+
+    private String getRelevantTlsContext() {
+        String enabledProtocols = getTlsEnabledProtocols();
+        if (enabledProtocols != null && !enabledProtocols.isEmpty()) {
+            String[] enabledProtocolsSplit = propertyToToSocketArg(enabledProtocols);
+            if (enabledProtocolsSplit.length == 1) {
+                return enabledProtocolsSplit[0];
+            }
+            return "TLS";
+        }
+        return "TLS";
     }
 
     static String[] addAnonCiphers(String[] ciphers) {
@@ -151,22 +186,22 @@ public class DummySSLServerSocketFactory extends SSLServerSocketFactory {
 
     @Override
     public ServerSocket createServerSocket() throws IOException {
-        return addAnonCipher(factory.createServerSocket());
+        return configureSocket(factory.createServerSocket());
     }
 
     @Override
     public ServerSocket createServerSocket(int i) throws IOException {
-        return addAnonCipher(factory.createServerSocket(i));
+        return configureSocket(factory.createServerSocket(i));
     }
 
     @Override
     public ServerSocket createServerSocket(int i, int i1) throws IOException {
-        return addAnonCipher(factory.createServerSocket(i, i1));
+        return configureSocket(factory.createServerSocket(i, i1));
     }
 
     @Override
     public ServerSocket createServerSocket(int i, int i1, InetAddress inetAddress) throws IOException {
-        return addAnonCipher(factory.createServerSocket(i, i1, inetAddress));
+        return configureSocket(factory.createServerSocket(i, i1, inetAddress));
     }
 
     @Override
@@ -176,7 +211,12 @@ public class DummySSLServerSocketFactory extends SSLServerSocketFactory {
 
     @Override
     public String[] getSupportedCipherSuites() {
-        return factory.getSupportedCipherSuites();
+        String enabledCiphers = getTlsEnabledCiphers();
+        if (enabledCiphers != null && !enabledCiphers.isEmpty()) {
+            return propertyToToSocketArg(enabledCiphers);
+        }else  {
+            return factory.getSupportedCipherSuites();
+        }
     }
 
     public KeyStore getKeyStore() {

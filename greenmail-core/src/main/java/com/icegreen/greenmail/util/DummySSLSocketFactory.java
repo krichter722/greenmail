@@ -20,6 +20,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Random;
 
+import static com.icegreen.greenmail.util.DummySSLServerSocketFactory.GREENMAIL_TLS_ENABLED_PROTOCOLS_PROPERTY;
 import static com.icegreen.greenmail.util.DummySSLServerSocketFactory.addAnonCiphers;
 
 /**
@@ -31,9 +32,9 @@ public class DummySSLSocketFactory extends SSLSocketFactory {
 
     public DummySSLSocketFactory() {
         try {
-            SSLContext sslcontext = SSLContext.getInstance("TLS");
+            SSLContext sslcontext = SSLContext.getInstance(getRelevantTlsContext());
             sslcontext.init(null,
-                    new TrustManager[]{new DummyTrustManager()},
+                    new TrustManager[]{},
                     null);
             factory = sslcontext.getSocketFactory();
         } catch (Exception ex) {
@@ -49,7 +50,31 @@ public class DummySSLSocketFactory extends SSLSocketFactory {
     private Socket addAnonCipher(Socket socket) {
         SSLSocket ssl = (SSLSocket) socket;
         ssl.setEnabledCipherSuites(addAnonCiphers(ssl.getEnabledCipherSuites()));
+        String enabledProtocols = getTlsEnabledProtocols();
+        if (enabledProtocols != null && !enabledProtocols.isEmpty()) {
+            ssl.setEnabledProtocols(enabledProtocolsToSocketArg(enabledProtocols));
+        }
         return ssl;
+    }
+
+    private String getTlsEnabledProtocols() {
+        return System.getProperty(GREENMAIL_TLS_ENABLED_PROTOCOLS_PROPERTY);
+    }
+
+    private String[] enabledProtocolsToSocketArg(String enabledProtocols) {
+        return enabledProtocols.split(",");
+    }
+
+    private String getRelevantTlsContext() {
+        String enabledProtocols = getTlsEnabledProtocols();
+        if (enabledProtocols != null && !enabledProtocols.isEmpty()) {
+            String[] enabledProtocolsSplit = enabledProtocolsToSocketArg(enabledProtocols);
+            if (enabledProtocolsSplit.length == 1) {
+                return enabledProtocolsSplit[0];
+            }
+            return "TLS";
+        }
+        return "TLS";
     }
 
     @Override
